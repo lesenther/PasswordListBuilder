@@ -1,192 +1,228 @@
 const permutations = require('./permutations');
 
+/**
+ * PasswordListBuilder class
+ *
+ */
 class PasswordListBuilder {
 
-  constructor(
-    bases = [],
-    separators = [],
-    prefixes = [],
-    suffixes = [],
-    baseLimit = false
-  ){
+  constructor(opts) {
     this.bases = [];
     this.prefixes = [];
     this.suffixes = [];
     this.separators = [];
-    this.baseLimit = baseLimit;
+    this.baseLimit = false;
+    this.repeatBases = opts.repeatBases || false;
+    this.repeatSeparators = opts.repeatSeparators || false;
+    this.passwordList = [];
 
-    if (bases) {
-      this.addBase(bases);
-    }
-    if (separators) {
-      this.addSeparator(separators);
-    }
-    if (prefixes) {
-      this.addPrefix(prefixes);
-    }
-    if (suffixes) {
-      this.addSuffix(suffixes);
-    }
+    this.addBase(opts.bases || opts.base || []);
+    this.addSeparator(opts.separators || opts.separator || opts.seps || opts.sep || []);
+    this.addPrefix(opts.prefixes || opts.prefix || opts.pre || []);
+    this.addSuffix(opts.suffixes || opts.suffix || opts.suf || opts.post || []);
+
+    this.generate();
+
+    return this;
   }
 
-  // Getters
-
-  getBases() {
-    return this.bases;
+  add(value, prop) {
+    return value.constructor === Array
+    ? value.forEach(_this => prop.push(_this))
+    : prop.push(value);
   }
 
-  getPrefixes() {
-    return this.prefixes;
+  addBase(base) {
+    return this.add(base, this.getBases());
   }
 
-  getSuffixes() {
-    return this.suffixes;
+  addPrefix(prefix) {
+    return this.add(prefix, this.getPrefixes());
   }
 
-  getSeparators() {
-    return this.separators;
+  addSeparator(separator) {
+    return this.add(separator, this.getSeparators());
+  }
+
+  addSuffix(suffix) {
+    return this.add(suffix, this.getSuffixes());
   }
 
   getBaseLimit() {
     return this.baseLimit;
   }
 
-  // Setters
+  getBases() {
+    return this.bases;
+  }
+
+  getDuplicates(arr = false) {
+    if (arr === false) {
+      arr = this.getPasswordList();
+    }
+
+    const uniq = arr.reduce((a, b) => Object.assign(a, {[b]: (a[b] || 0) + 1}), {});
+
+    return Object.keys(uniq).filter(a => uniq[a] > 1);
+  }
+
+  getPasswordList() {
+    return this.passwordList === false
+    ? this.generate()
+    : this.passwordList;
+  }
+
+  getPrefixes() {
+    return this.prefixes;
+  }
+
+  getRepeatBases() {
+    return this.repeatBases;
+  }
+
+  getRepeatSeparators() {
+    return this.repeatSeparators;
+  }
+
+  getSeparators() {
+    return this.separators;
+  }
+
+  getSuffixes() {
+    return this.suffixes;
+  }
+
+  getUnique(arr = false) {
+    if (arr === false) {
+      arr = this.getPasswordList();
+    }
+
+    return arr.constructor !== Array
+    ? arr
+    : [...new Set(arr) ];
+  }
+
+  setBaseLimit(limit) {
+    return this.baseLimit = (limit.constructor === Array
+    ? limit
+    : parseInt(limit, 10));
+  }
 
   setBases(base) {
     return this.getBases() = base;
+  }
+
+  setPasswordList(passwordList) {
+    return this.passwordList = passwordList;
   }
 
   setPrefixes(prefix) {
     return this.getPrefixes() = prefix;
   }
 
-  setSuffixes(suffix) {
-    return this.getSuffixes() = suffix;
-  }
-
   setSeparators(separators) {
     return this.getSeparators() = separators;
   }
 
-  setBaseLimit(limit) {
-    return this.baseLimit = parseInt(limit, 10);
+  setSuffixes(suffix) {
+    return this.getSuffixes() = suffix;
   }
-
-  // Adders
-
-  addBase(base) {
-    if (base.constructor === Array) {
-      return base.forEach(_base => this.getBases().push(_base));
-    } else {
-      return this.getBases().push(base);
-    }
-  }
-
-  addPrefix(prefix) {
-    if (prefix.constructor === Array) {
-      return prefix.forEach(_prefix => this.getPrefixes().push(_prefix));
-    } else {
-      return this.getPrefixes().push(prefix);
-    }
-  }
-
-  addSuffix(suffix) {
-    if (suffix.constructor === Array) {
-      return suffix.forEach(_suffix => this.getSuffixes().push(_suffix));
-    } else {
-      return this.getSuffixes().push(suffix);
-    }
-  }
-
-  addSeparator(separator) {
-    if (separator.constructor === Array) {
-      return separator.forEach(_sep => this.getSeparators().push(_sep));
-    } else {
-      return this.getSeparators().push(separator);
-    }
-  }
-
-  // Doers
 
   generate() {
     // Create base permutations
     const basePermutations = [];
 
     if (this.getBaseLimit()) {
-      permutations(this.getBases(), this.getBaseLimit())
-      .forEach(permutation => basePermutations.push(permutation));
+      if (this.getBaseLimit().constructor === Array) {
+        this.getBaseLimit()
+        .forEach(baseLimit => permutations(this.getBases(), baseLimit, this.getRepeatBases())
+        .forEach(permutation => basePermutations.push(permutation)));
+      } else {
+        permutations(this.getBases(), this.getBaseLimit(), this.getRepeatBases())
+        .forEach(permutation => basePermutations.push(permutation));
+      }
     } else {
-      for (let i = 1; i <= this.getBases().length; i++) {
-        permutations(this.getBases(), i)
+      for (let baseLimit = 1; baseLimit <= this.getBases().length; baseLimit++) {
+        permutations(this.getBases(), baseLimit, this.getRepeatBases())
         .forEach(permutation => basePermutations.push(permutation));
       }
     }
 
     // Create permuration seperators
-    const permutationsWithSeperators = [];
+    const separatedPermutations = [];
+    const separatorsMatrix = [];
 
     basePermutations.forEach(permutation => {
       const seperators = this.separators;
 
       if (permutation.length === 1) {
-        permutationsWithSeperators.push(permutation[0]);
+        separatedPermutations.push(permutation.join(''));
       } else {
-        while (seperators.length < permutation.length - 1) {
-          seperators.push('');
+        if (!this.getRepeatSeparators()) {
+          while (seperators.length < permutation.length - 1) {
+            seperators.push('');
+          }
         }
 
-        permutations(seperators, permutation.length - 1)
+        if (typeof separatorsMatrix[permutation.length] === 'undefined') {
+          separatorsMatrix[permutation.length] = permutations(
+            seperators, permutation.length - 1, this.getRepeatSeparators());
+        }
+
+        separatorsMatrix[permutation.length]
         .forEach(seperator => {
           let merged = '';
-  
+
           for (let i = 0; i < seperator.length; i++) {
             merged += permutation[i] + seperator[i];
           }
-  
+
           merged += permutation[permutation.length - 1];
 
-          permutationsWithSeperators.push(merged);
+          separatedPermutations.push(merged);
         });
       }
     });
 
     // Create prefixes
-    const permutationsWithPrefixes = [];
+    const prefixedPermutations = [];
 
     this.getPrefixes().forEach(prefix => {
-      permutationsWithSeperators.forEach(permutation => {
-        permutationsWithPrefixes.push(prefix + permutation);
+      separatedPermutations.forEach(permutation => {
+        prefixedPermutations.push(prefix + permutation);
       })
     });
 
     // Create suffixes
-    const permutationsWithSuffixes = [];
+    const suffixedPermutations = [];
 
     this.getSuffixes().forEach(suffix => {
-      permutationsWithSeperators.forEach(permutation => {
-        permutationsWithPrefixes.push(permutation + suffix);
+      separatedPermutations.forEach(permutation => {
+        prefixedPermutations.push(permutation + suffix);
       })
     });
 
     // Create prefix and suffixes
-    const permutationsWithPrefixesAndSuffixes = [];
+    const preAndSuffixedPermutations = [];
+    
     if (this.getPrefixes().length && this.getSuffixes().length) {
       this.getPrefixes().forEach(prefix => {
         this.getSuffixes().forEach(suffix => {
-          permutationsWithSeperators.forEach(permutation => {
-            permutationsWithPrefixesAndSuffixes.push(prefix + permutation + suffix);
+          separatedPermutations.forEach(permutation => {
+            preAndSuffixedPermutations.push(prefix + permutation + suffix);
           })
         });
       });
     }
 
-    return [
-      ...permutationsWithSeperators,
-      ...permutationsWithPrefixes,
-      ...permutationsWithSuffixes,
-      ...permutationsWithPrefixesAndSuffixes
-    ];
+    this.setPasswordList([
+      ...separatedPermutations,
+      ...prefixedPermutations,
+      ...suffixedPermutations,
+      ...preAndSuffixedPermutations
+    ]);
+
+    return this.getPasswordList();
   }
 
 }

@@ -2,19 +2,19 @@ const jStr = JSON.stringify;
 
 /**
  *
- * @param {Array} arr
- * @param {Number} len
+ * @param {Array} arr Elements to create permutations with
+ * @param {Number} len Number of elements in each set
+ * @param {Boolean} repeat Whether use each value only once or from one to len times
  * @param {Array} prefix
- * @param {Boolean} repeat Whether to allow repeated values // TODO:  Why would I want to include this?
  */
-function permutations(arr, len, prefix = [], repeat = false) {
+function permutations(arr, len, repeat = false, prefix = []) {
   len = len || arr.length;
   const results = [];
 
   if (prefix.length === len) {
     return [ prefix ];
   } else {
-    for (let elem of arr) {
+    arr.forEach(elem => {
       let newArr = null;
 
       if (!repeat) {
@@ -22,15 +22,13 @@ function permutations(arr, len, prefix = [], repeat = false) {
         newArr.splice(newArr.indexOf(elem), 1);
       }
 
-      permutations(repeat ? arr : newArr, len, [ ...prefix, elem ], repeat)
+      permutations(repeat ? arr : newArr, len, repeat, [ ...prefix, elem ])
       .forEach(result => {
-        if (repeat ||
-          (!repeat && !results.find(r => jStr(result) === jStr(r)))
-        ) {
+        if (!results.find(r => jStr(result) === jStr(r))) {
           results.push(result);
         }
       });
-    }
+    });
 
     return results;
   }
